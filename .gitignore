@@ -1,10 +1,15 @@
-# Prerequisites
-*.d
+# Compiled binaries
+*.exe
+*.out
+*.app
+*.bin
+main
+a.out
 
 # Object files
 *.o
-*.ko
 *.obj
+*.ko
 *.elf
 
 # Linker output
@@ -21,20 +26,10 @@
 *.a
 *.la
 *.lo
-
-# Shared objects (inc. Windows DLLs)
 *.dll
 *.so
 *.so.*
 *.dylib
-
-# Executables
-*.exe
-*.out
-*.app
-*.i*86
-*.x86_64
-*.hex
 
 # Debug files
 *.dSYM/
@@ -42,14 +37,60 @@
 *.idb
 *.pdb
 
-# Kernel Module Compile Results
-*.mod*
-*.cmd
-.tmp_versions/
-modules.order
-Module.symvers
-Mkfile.old
-dkms.conf
+# Static analysis
+*.sarif
 
-# debug information files
-*.dwo
+# CMake
+CMakeLists.txt.user
+CMakeCache.txt
+CMakeFiles/
+CMakeScripts/
+Testing/
+Makefile
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+CTestTestfile.cmake
+_deps
+
+# Build directories
+build/
+Build/
+debug/
+Debug/
+release/
+Release/
+bin/
+obj/
+
+# VS Code
+.vscode/
+
+# IDE files
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Core dumps
+core
+core.*
+vgcore.*
+
+# Valgrind output
+*.valgrind
+valgrind-out.txt
+
+# GDB history
+.gdb_history
+
+# Process/thread related temp files
+*.pid
+*.lock
+*.tmp
+temp_*
+
+# Log files
+*.log
+logs/
