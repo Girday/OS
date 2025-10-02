@@ -64,7 +64,6 @@ int main() {
         }
 
         close(STDOUT_FILENO);
-        fflush(stdout);
 
         wait(NULL);
     }

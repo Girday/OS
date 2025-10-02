@@ -1,8 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define FINISH 1
-#define WRITE 0
+#define FINISH 0
+#define WRITE 1
 
 int isPrime(int n) {
     if (n <= 1) 
@@ -15,12 +15,11 @@ int isPrime(int n) {
 
 int main(int argc, char *argv[]) {
     if (argc < 2) {
-        fprintf(stderr, "Usage: %s <output_file>\n", argv[0]);
+        fprintf(stderr, "Output file is missing\n");
         return EXIT_FAILURE;
     }
 
-    const char *filename = argv[1];
-    FILE *f = fopen(filename, "a");
+    FILE *f = fopen(argv[1], "w");
     if (!f) {
         perror("fopen");
         return EXIT_FAILURE;
