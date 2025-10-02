@@ -94,3 +94,6 @@ temp_*
 # Log files
 *.log
 logs/
+
+
+*.txt
