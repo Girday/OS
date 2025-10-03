@@ -38,19 +38,19 @@ int main() {
 
     if (pid == CHILD) {
 
-        close(pipe2[0]);        
-        if (dup2(pipe2[1], STDOUT_FILENO) == -1) {
-            perror("dup2");
-            _exit(EXIT_FAILURE);
-        }
-        close(pipe2[1]);
-
         close(pipe1[1]);
         if (dup2(pipe1[0], STDIN_FILENO) == -1) {
             perror("dup2");
             _exit(EXIT_FAILURE);
         }
         close(pipe1[0]);
+
+        close(pipe2[0]);        
+        if (dup2(pipe2[1], STDOUT_FILENO) == -1) {
+            perror("dup2");
+            _exit(EXIT_FAILURE);
+        }
+        close(pipe2[1]);
 
         execl("./child.out", "child.out", file_name, NULL);
         perror("execl");
@@ -60,16 +60,16 @@ int main() {
     
         printf("Enter numbers (one per line):\n");
         fflush(stdout);
-        
 
-
-        FILE *child_stream = fdopen(pipe2[1], "r");
+        close(pipe2[1]);
+        FILE *child_stream = fdopen(pipe2[0], "r");
         if (!child_stream) {
             perror("fdopen");
             exit(1);
         }
-        close(pipe2[1]);
+        close(pipe2[0]);
 
+        close(pipe1[0]);
         if (dup2(pipe1[1], STDOUT_FILENO) == -1) {
             perror("dup2");
             return EXIT_FAILURE;
@@ -82,10 +82,10 @@ int main() {
             printf("%d\n", num);
             fflush(stdout);
 
-            if (fscanf(child_stream, "%d", &status) == 1){
+            if (fscanf(child_stream, "%d", &status) == 1) {
                 printf("Status: %d\n", status);
                 if (status == FINISH)
-                    break;    
+                    break;
             } else {
                 perror("fscanf");
                 break;
