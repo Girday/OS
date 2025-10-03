@@ -28,10 +28,10 @@ int main(int argc, char *argv[]) {
         if (isPrime(num) == FINISH)
             break;
 
-        char buffer[32];
-        int len = snprintf(buffer, sizeof(buffer), "%d\n", num);
+        char string[32];
+        int len = snprintf(string, sizeof(string), "%d\n", num);
 
-        if (write(f, buffer, len) == -1) {
+        if (write(f, string, len) == -1) {
             perror("write");
             close(f);
             return EXIT_FAILURE;
