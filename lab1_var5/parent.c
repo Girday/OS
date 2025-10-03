@@ -5,6 +5,7 @@
 
 #define FILE_NAME_SIZE 256
 #define CHILD 0
+#define FINISH 0
 
 
 pid_t createProcess() {
@@ -17,9 +18,10 @@ pid_t createProcess() {
 }
 
 int main() {    
-    int pipe_id[2];
+    int pipe1[2];
+    int pipe2[2];
 
-    if (pipe(pipe_id) == -1) {
+    if (pipe(pipe1) == -1 || pipe(pipe2) == -1) {
         perror("pipe");
         return EXIT_FAILURE;
     }
@@ -35,34 +37,62 @@ int main() {
     pid_t pid = createProcess();
 
     if (pid == CHILD) {
-        close(pipe_id[1]);
-        if (dup2(pipe_id[0], STDIN_FILENO) == -1) {
+
+        close(pipe2[0]);        
+        if (dup2(pipe2[1], STDOUT_FILENO) == -1) {
             perror("dup2");
             _exit(EXIT_FAILURE);
         }
-        close(pipe_id[0]);
+        close(pipe2[1]);
+
+        close(pipe1[1]);
+        if (dup2(pipe1[0], STDIN_FILENO) == -1) {
+            perror("dup2");
+            _exit(EXIT_FAILURE);
+        }
+        close(pipe1[0]);
 
         execl("./child.out", "child.out", file_name, NULL);
         perror("execl");
         _exit(EXIT_FAILURE);
-    } 
-    else {
+    
+    } else {
+    
         printf("Enter numbers (one per line):\n");
         fflush(stdout);
+        
 
-        close(pipe_id[0]);
-        if (dup2(pipe_id[1], STDOUT_FILENO) == -1) {
+
+        FILE *child_stream = fdopen(pipe2[1], "r");
+        if (!child_stream) {
+            perror("fdopen");
+            exit(1);
+        }
+        close(pipe2[1]);
+
+        if (dup2(pipe1[1], STDOUT_FILENO) == -1) {
             perror("dup2");
             return EXIT_FAILURE;
         }
-        close(pipe_id[1]);
+        close(pipe1[1]);
 
         int num;
+        int status;
         while (scanf("%d", &num) == 1) {
             printf("%d\n", num);
             fflush(stdout);
+
+            if (fscanf(child_stream, "%d", &status) == 1){
+                printf("Status: %d\n", status);
+                if (status == FINISH)
+                    break;    
+            } else {
+                perror("fscanf");
+                break;
+            }
         }
 
+        fclose(child_stream);
         close(STDOUT_FILENO);
 
         wait(NULL);

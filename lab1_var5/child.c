@@ -28,10 +28,20 @@ int main(int argc, char *argv[]) {
     int num;
     while (scanf("%d", &num) == 1) {
         if (isPrime(num) == WRITE) {
+        
+            printf("%d", WRITE);
+            fflush(stdout);
+
             fprintf(f, "%d\n", num);
             fflush(f);
-        } else
+        
+        } else {
+        
+            printf("%d", FINISH);
+            fflush(stdout);
+
             break;
+        }
     }
 
     fclose(f);
