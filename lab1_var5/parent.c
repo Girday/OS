@@ -25,7 +25,7 @@ int main() {
     }
 
     printf("Please, enter the NAME of the FILE: ");
-    ffllush(stdout);
+    fflush(stdout);
     
     char file_name[FILE_NAME_SIZE];
 
