@@ -25,6 +25,8 @@ int main() {
     }
 
     printf("Please, enter the NAME of the FILE: ");
+    ffllush(stdout);
+    
     char file_name[FILE_NAME_SIZE];
 
     if (scanf("%s", file_name) != 1) {
