@@ -1,5 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
+#include <fcntl.h>
 
 #define FINISH 0
 #define WRITE 1
@@ -19,21 +21,23 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
     }
 
-    FILE *f = fopen(argv[1], "w");
-    if (!f) {
-        perror("fopen");
-        return EXIT_FAILURE;
-    }
+    int f = open(argv[1], O_WRONLY | O_CREAT | O_TRUNC, 0644);
 
     int num;
     while (scanf("%d", &num) == 1) {
-        if (isPrime(num) == WRITE) {
-            fprintf(f, "%d\n", num);
-            fflush(f);
-        } else
+        if (isPrime(num) == FINISH)
             break;
+
+        char buffer[32];
+        int len = snprintf(buffer, sizeof(buffer), "%d\n", num);
+
+        if (write(f, buffer, len) == -1) {
+            perror("write");
+            close(f);
+            return EXIT_FAILURE;
+        }
     }
 
-    fclose(f);
+    close(f);
     return 0;
 }
