@@ -3,15 +3,17 @@
 #include <unistd.h>
 #include <fcntl.h>
 
-#define FINISH 0
-#define WRITE 1
+#define FINISH 1
+#define WRITE 0
 
 int isPrime(int n) {
-    if (n <= 1) 
+    if (n <= 1)
         return FINISH;
-    for (int i = 2; i * i <= n; i++) 
-        if (n % i == 0) 
+
+    for (int i = 2; i * i <= n; i++)
+        if (n % i == 0)
             return WRITE;
+
     return FINISH;
 }
 
@@ -22,22 +24,24 @@ int main(int argc, char *argv[]) {
     }
 
     int f = open(argv[1], O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    
+    if (f == -1) {
+        perror("open");
+        return EXIT_FAILURE;
+    }
 
     int num;
     while (scanf("%d", &num) == 1) {
-        if (isPrime(num) == FINISH)
+        if (isPrime(num) == WRITE) {
+            dprintf(f, "%d\n", num);
+        } else {
+            int signal = FINISH;
+            write(STDOUT_FILENO, &signal, sizeof(signal));
             break;
-
-        char string[32];
-        int len = snprintf(string, sizeof(string), "%d\n", num);
-
-        if (write(f, string, len) == -1) {
-            perror("write");
-            close(f);
-            return EXIT_FAILURE;
         }
     }
 
     close(f);
+    
     return 0;
 }
