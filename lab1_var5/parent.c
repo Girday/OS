@@ -11,10 +11,12 @@
 
 pid_t createProcess() {
     pid_t pid = fork();
+    
     if (pid == -1) {
         perror("fork");
         exit(EXIT_FAILURE);
     }
+
     return pid;
 }
 
