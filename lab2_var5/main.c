@@ -1,257 +1,191 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
-#include <semaphore.h>
 #include <time.h>
-#include <string.h>
+#include <unistd.h>
 
-// Глобальные переменные для управления потоками
-sem_t thread_limiter;
-int max_threads;
-int active_threads = 0;
-pthread_mutex_t counter_mutex = PTHREAD_MUTEX_INITIALIZER;
+// Глобальные переменные
+int *array;
+int array_size;
 
-// Структура для передачи аргументов в поток
+// Структура для передачи данных в поток
 typedef struct {
-    int* arr;
-    int low;
-    int cnt;
-    int dir;
-} ThreadArgs;
-
-// Функция для обмена двух элементов
-void swap(int* a, int* b) {
-    int temp = *a;
-    *a = *b;
-    *b = temp;
-}
+    int thread_id;
+    int num_threads;
+    int phase;
+} ThreadData;
 
 // Функция сравнения и обмена
-void compareExchange(int arr[], int i, int j, int dir) {
-    if (dir == (arr[i] > arr[j])) {
-        swap(&arr[i], &arr[j]);
+void compareSwap(int i, int j) {
+    if (array[i] > array[j]) {
+        int temp = array[i];
+        array[i] = array[j];
+        array[j] = temp;
     }
 }
 
-// Последовательное чётно-нечётное слияние
-void batcherMergeSeq(int arr[], int low, int cnt, int dir) {
-    if (cnt > 1) {
-        int m = cnt / 2;
-        
-        for (int i = low; i < low + cnt - m; i++) {
-            compareExchange(arr, i, i + m, dir);
-        }
-        
-        batcherMergeSeq(arr, low, m, dir);
-        batcherMergeSeq(arr, low + m, cnt - m, dir);
-    }
-}
-
-// Последовательная сортировка Бетчера
-void batcherSortSeq(int arr[], int low, int cnt, int dir) {
-    if (cnt > 1) {
-        int m = cnt / 2;
-        batcherSortSeq(arr, low, m, 1);
-        batcherSortSeq(arr, low + m, cnt - m, 0);
-        batcherMergeSeq(arr, low, cnt, dir);
-    }
-}
-
-// Поток для сортировки
-void* batcherSortThread(void* args) {
-    ThreadArgs* targs = (ThreadArgs*)args;
-    batcherSortSeq(targs->arr, targs->low, targs->cnt, targs->dir);
+// Функция, выполняемая потоком (одна фаза)
+void* threadWork(void* arg) {
+    ThreadData* data = (ThreadData*)arg;
+    int tid = data->thread_id;
+    int num_threads = data->num_threads;
+    int offset = (data->phase % 2 == 0) ? 0 : 1;
     
-    pthread_mutex_lock(&counter_mutex);
-    active_threads--;
-    pthread_mutex_unlock(&counter_mutex);
+    // Распределяем пары между потоками
+    for (int i = offset + tid * 2; i + 1 < array_size; i += num_threads * 2) {
+        compareSwap(i, i + 1);
+    }
     
-    sem_post(&thread_limiter);
-    free(targs);
+    free(data);
     return NULL;
 }
 
-// Многопоточная сортировка Бетчера
-void batcherSortParallel(int arr[], int low, int cnt, int dir) {
-    if (cnt > 1) {
-        int m = cnt / 2;
-        
-        // Пытаемся создать потоки для параллельной обработки
-        int can_parallelize = 0;
-        if (cnt > 1000) { // Порог для создания потока
-            sem_wait(&thread_limiter);
-            pthread_mutex_lock(&counter_mutex);
-            if (active_threads < max_threads) {
-                active_threads++;
-                can_parallelize = 1;
-            }
-            pthread_mutex_unlock(&counter_mutex);
-            
-            if (!can_parallelize) {
-                sem_post(&thread_limiter);
-            }
+// Многопоточная сортировка
+void batcherSortParallel(int num_threads) {
+    pthread_t *threads = malloc(num_threads * sizeof(pthread_t));
+    
+    // Выполняем фазы последовательно
+    for (int phase = 0; phase < array_size; phase++) {
+        // Создаем потоки для этой фазы
+        for (int t = 0; t < num_threads; t++) {
+            ThreadData* data = malloc(sizeof(ThreadData));
+            data->thread_id = t;
+            data->num_threads = num_threads;
+            data->phase = phase;
+            pthread_create(&threads[t], NULL, threadWork, data);
         }
         
-        if (can_parallelize) {
-            pthread_t thread1;
-            ThreadArgs* args1 = malloc(sizeof(ThreadArgs));
-            args1->arr = arr;
-            args1->low = low;
-            args1->cnt = m;
-            args1->dir = 1;
-            
-            pthread_create(&thread1, NULL, batcherSortThread, args1);
-            
-            // Вторую половину обрабатываем в текущем потоке
-            batcherSortParallel(arr, low + m, cnt - m, 0);
-            
-            pthread_join(thread1, NULL);
-        } else {
-            // Последовательная обработка
-            batcherSortSeq(arr, low, m, 1);
-            batcherSortSeq(arr, low + m, cnt - m, 0);
+        // Ждем завершения фазы
+        for (int t = 0; t < num_threads; t++) {
+            pthread_join(threads[t], NULL);
         }
-        
-        batcherMergeSeq(arr, low, cnt, dir);
+    }
+    
+    free(threads);
+}
+
+// Однопоточная версия
+void batcherSortSequential() {
+    for (int phase = 0; phase < array_size; phase++) {
+        int offset = (phase % 2 == 0) ? 0 : 1;
+        for (int i = offset; i + 1 < array_size; i += 2) {
+            compareSwap(i, i + 1);
+        }
     }
 }
 
-// Функция для генерации случайного массива
-void generateRandomArray(int arr[], int n) {
-    for (int i = 0; i < n; i++) {
-        arr[i] = rand() % 10000;
-    }
-}
-
-// Функция для копирования массива
-void copyArray(int dest[], int src[], int n) {
-    memcpy(dest, src, n * sizeof(int));
-}
-
-// Функция для нахождения ближайшей степени двойки (больше или равной n)
-int nextPowerOfTwo(int n) {
-    int power = 1;
-    while (power < n) {
-        power *= 2;
-    }
-    return power;
-}
-
-// Функция для проверки отсортированности
-int isSorted(int arr[], int n) {
-    for (int i = 1; i < n; i++) {
-        if (arr[i] < arr[i-1]) {
+// Проверка сортировки
+int isSorted() {
+    for (int i = 0; i < array_size - 1; i++)
+        if (array[i] > array[i + 1])
             return 0;
-        }
-    }
     return 1;
 }
 
-// Функция для вывода массива
-void printArray(int arr[], int n, int max_print) {
-    int print_count = n < max_print ? n : max_print;
-    for (int i = 0; i < print_count; i++) {
-        printf("%d ", arr[i]);
-    }
-    if (n > max_print) {
-        printf("... (всего %d элементов)", n);
-    }
-    printf("\n");
-}
+// Вывод массива
+void printArray() {
+    int print_limit = (array_size > 20) ? 20 : array_size;
+    
+    if (array_size > 20)
+        printf("Первые 20 элементов: ");
 
-// Функция для замера времени
-double getTime() {
-    struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    return ts.tv_sec + ts.tv_nsec / 1e9;
+    printf("[");
+    for (int i = 0; i < print_limit; i++) {
+        printf("%d", array[i]);
+        if (i < print_limit - 1) 
+            printf(", ");
+    }
+    printf("]\n");
 }
 
 int main(int argc, char* argv[]) {
-    // Параметры по умолчанию
-    int array_size = 10000;
-    max_threads = 4;
-    
-    // Парсинг аргументов командной строки
-    for (int i = 1; i < argc; i++) {
-        if (strcmp(argv[i], "-t") == 0 || strcmp(argv[i], "--threads") == 0) {
-            if (i + 1 < argc) {
-                max_threads = atoi(argv[i + 1]);
-                i++;
-            }
-        } else if (strcmp(argv[i], "-n") == 0 || strcmp(argv[i], "--size") == 0) {
-            if (i + 1 < argc) {
-                array_size = atoi(argv[i + 1]);
-                i++;
-            }
-        } else if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0) {
-            printf("Использование: %s [опции]\n", argv[0]);
-            printf("Опции:\n");
-            printf("  -t, --threads <число>  Максимальное количество потоков (по умолчанию: 4)\n");
-            printf("  -n, --size <число>     Размер массива (по умолчанию: 10000)\n");
-            printf("  -h, --help             Показать эту справку\n");
-            return 0;
-        }
+    if (argc != 3) {
+        printf("Использование: %s <размер_массива> <количество_потоков>\n", argv[0]);
+        printf("Пример: %s 1000 4\n", argv[0]);
+        return 1;
     }
     
-    printf("=== Многопоточная сортировка Бетчера ===\n");
-    printf("Размер массива: %d\n", array_size);
-    printf("Максимальное количество потоков: %d\n\n", max_threads);
+    array_size = atoi(argv[1]);
+    int num_threads = atoi(argv[2]);
     
-    // Инициализация семафора
-    sem_init(&thread_limiter, 0, max_threads);
+    if (array_size <= 0 || num_threads <= 0) {
+        printf("Ошибка: размер и потоки должны быть > 0\n");
+        return 1;
+    }
     
-    // Выделение памяти для массивов
-    int* original_array = malloc(array_size * sizeof(int));
-    int* parallel_array = malloc(array_size * sizeof(int));
-    int* sequential_array = malloc(array_size * sizeof(int));
-    
-    // Генерация случайного массива
+    // Создание массивов
+    array = malloc(array_size * sizeof(int));
+    int *array_copy = malloc(array_size * sizeof(int));
     srand(time(NULL));
-    generateRandomArray(original_array, array_size);
     
-    printf("Первые 20 элементов исходного массива:\n");
-    printArray(original_array, array_size, 20);
-    printf("\n");
+    // Заполнение
+    for (int i = 0; i < array_size; i++) {
+        array[i] = rand() % 1000;
+        array_copy[i] = array[i];
+    }
     
-    // Параллельная сортировка
-    copyArray(parallel_array, original_array, array_size);
-    printf("Запуск параллельной сортировки...\n");
-    double start_parallel = getTime();
-    batcherSortParallel(parallel_array, 0, array_size, 1);
-    double end_parallel = getTime();
-    double time_parallel = end_parallel - start_parallel;
+    printf("\n=== Сортировка Бетчера ===\n");
+    printf("Размер: %d\n", array_size);
+    printf("Потоки: %d\n", num_threads);
+    printf("PID: %d\n", getpid());
     
-    printf("Время параллельной сортировки: %.6f сек\n", time_parallel);
-    printf("Массив отсортирован: %s\n\n", isSorted(parallel_array, array_size) ? "ДА" : "НЕТ");
+    if (array_size <= 20) {
+        printf("\nДо сортировки:\n");
+        printArray();
+    }
     
-    // Последовательная сортировка
-    copyArray(sequential_array, original_array, array_size);
-    printf("Запуск последовательной сортировки...\n");
-    double start_seq = getTime();
-    batcherSortSeq(sequential_array, 0, array_size, 1);
-    double end_seq = getTime();
-    double time_seq = end_seq - start_seq;
+    // Многопоточная версия
+    printf("\n--- Многопоточная ---\n");
+    struct timespec start, end;
+    clock_gettime(CLOCK_MONOTONIC, &start);
     
-    printf("Время последовательной сортировки: %.6f сек\n", time_seq);
-    printf("Массив отсортирован: %s\n\n", isSorted(sequential_array, array_size) ? "ДА" : "НЕТ");
+    batcherSortParallel(num_threads);
     
-    // Вычисление метрик
-    double speedup = time_seq / time_parallel;
-    double efficiency = speedup / max_threads * 100;
+    clock_gettime(CLOCK_MONOTONIC, &end);
+    double parallel_time = (end.tv_sec - start.tv_sec) + 
+                           (end.tv_nsec - start.tv_nsec) / 1e9;
     
-    printf("=== Результаты ===\n");
-    printf("Ускорение (Speedup): %.2fx\n", speedup);
-    printf("Эффективность: %.2f%%\n", efficiency);
+    if (array_size <= 20) {
+        printf("После:\n");
+        printArray();
+    }
     
-    printf("\nПервые 20 элементов отсортированного массива:\n");
-    printArray(parallel_array, array_size, 20);
+    printf("%s\n", isSorted() ? "✓ Отсортировано" : "✗ ОШИБКА!");
+    printf("Время: %.6f сек\n", parallel_time);
     
-    // Освобождение ресурсов
-    sem_destroy(&thread_limiter);
-    pthread_mutex_destroy(&counter_mutex);
-    free(original_array);
-    free(parallel_array);
-    free(sequential_array);
+    // Однопоточная версия
+    printf("\n--- Однопоточная ---\n");
+    for (int i = 0; i < array_size; i++)
+        array[i] = array_copy[i];
     
+    clock_gettime(CLOCK_MONOTONIC, &start);
+    batcherSortSequential();
+    clock_gettime(CLOCK_MONOTONIC, &end);
+    
+    double sequential_time = (end.tv_sec - start.tv_sec) + 
+                             (end.tv_nsec - start.tv_nsec) / 1e9;
+    
+    printf("Время: %.6f сек\n", sequential_time);
+    
+    // Метрики
+    double speedup = sequential_time / parallel_time;
+    double efficiency = (speedup / num_threads) * 100.0;
+    
+    printf("\n--- Результаты ---\n");
+    printf("Ускорение: %.2fx\n", speedup);
+    printf("Эффективность: %.1f%%\n", efficiency);
+    
+    if (speedup < 1.0) {
+        printf("\n⚠️  Многопоточность не дала выигрыша\n");
+        printf("Причины:\n");
+        printf("- Накладные расходы на создание/уничтожение потоков\n");
+        printf("- Алгоритм O(n²) неэффективен для больших массивов\n");
+        printf("- Четно-нечетная сортировка требует много синхронизации\n");
+    }
+    
+    printf("\n💡 Просмотр потоков: ps -T -p %d\n", getpid());
+    
+    free(array);
+    free(array_copy);
     return 0;
 }
