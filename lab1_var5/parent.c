@@ -8,7 +8,6 @@
 #define CHILD 0
 #define FINISH 1
 
-
 pid_t createProcess() {
     pid_t pid = fork();
     
@@ -69,46 +68,26 @@ int main() {
 
         int num;
         int signal;
-        fd_set readfds; // множество дескрипторов для select (на чтение):
-                        // там всё типа 01001010010, где 1 значит, 
-                        //     что i-й дескриптор участвует в операции
+        fd_set readfds;
 
         while (1) {
-            FD_ZERO(&readfds); // конкретное обнуление множества
+            FD_ZERO(&readfds);
 
-            FD_SET(STDIN_FILENO, &readfds); // какой-то 0 заменяется на 1,
-            FD_SET(pipe_out[0], &readfds);  // и этот дескриптор теперь участвует в операции
+            FD_SET(STDIN_FILENO, &readfds);
+            FD_SET(pipe_out[0], &readfds);
 
             int maxfd = (STDIN_FILENO > pipe_out[0]) ? STDIN_FILENO : pipe_out[0];
-            // максимальный дескриптор из всех, что мы слушаем
            
-            if (select(maxfd + 1, &readfds, NULL, NULL, NULL) == -1) {
-                perror("select");
-                break;
-            }
-            /* 
-            select(максимальный файловый дескриптор + 1, 
-                   множество файловых дескрипторов на чтение,
-                   множество файловых дескрипторов на запись,
-                   множество файловых дескрипторов на исключения,
-                   время ожидания (NULL - ждать бесконечно));
-            
-            Возвращает количество дескрипторов, готовых к операции
-            или -1 при ошибке
-            или 0, если время вышло (при времени ожидания != NULL)
+            select(maxfd + 1, &readfds, NULL, NULL, NULL);
 
-            После select в readfds будут стоять 1 только у тех дескрипторов, 
-            которые готовы к чтению, и 0, если не готовы
-            */
-
-            if (FD_ISSET(STDIN_FILENO, &readfds)) { // если в множестве на чтение в stdin стоит 1
+            if (FD_ISSET(STDIN_FILENO, &readfds)) {
                 if (scanf("%d", &num) == 1)
                     dprintf(pipe_in[1], "%d\n", num);
                 else
                     break;
             }
 
-            if (FD_ISSET(pipe_out[0], &readfds)) { // если в множестве на чтение в пайп стоит 1
+            if (FD_ISSET(pipe_out[0], &readfds)) {
                 if (read(pipe_out[0], &signal, sizeof(signal)) <= 0) 
                     break;
                 

@@ -32,9 +32,9 @@ int main(int argc, char *argv[]) {
 
     int num;
     while (scanf("%d", &num) == 1) {
-        if (isPrime(num) == WRITE) {
+        if (isPrime(num) == WRITE)
             dprintf(f, "%d\n", num);
-        } else {
+        else {
             int signal = FINISH;
             write(STDOUT_FILENO, &signal, sizeof(signal));
             break;
