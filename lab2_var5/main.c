@@ -48,9 +48,9 @@ int is_power_of_two(int n) {
 // Функция для получения следующей степени двойки
 int next_power_of_two(int n) {
     int power = 1;
-    while (power < n) {
+    while (power < n)
         power *= 2;
-    }
+    
     return power;
 }
 
@@ -61,19 +61,13 @@ void batcher_odd_even_sort_sequential(int* array, int size) {
         return;
     }
 
-    for (int p = 1; p < size; p *= 2) {
-        for (int k = p; k >= 1; k /= 2) {
-            for (int j = k % p; j < size - k; j += 2 * k) {
-                for (int i = 0; i < k; i++) {
-                    if ((i + j) / (p * 2) == (i + j + k) / (p * 2)) {
-                        if (array[i + j] > array[i + j + k]) {
+    for (int p = 1; p < size; p *= 2)
+        for (int k = p; k >= 1; k /= 2)
+            for (int j = k % p; j < size - k; j += 2 * k)
+                for (int i = 0; i < k; i++)
+                    if ((i + j) / (p * 2) == (i + j + k) / (p * 2))
+                        if (array[i + j] > array[i + j + k])
                             swap(&array[i + j], &array[i + j + k]);
-                        }
-                    }
-                }
-            }
-        }
-    }
 }
 
 // Функция, выполняемая каждым потоком
@@ -86,16 +80,11 @@ void* batcher_odd_even_sort_parallel(void* arg) {
     
     for (int p = 1; p < size; p *= 2) {
         for (int k = p; k >= 1; k /= 2) {
-            // Каждый поток обрабатывает свою часть работы
-            for (int j = k % p + thread_id * (2 * k); j < size - k; j += 2 * k * num_threads) {
-                for (int i = 0; i < k && (i + j) < size - k; i++) {
-                    if ((i + j) / (p * 2) == (i + j + k) / (p * 2)) {
-                        if (array[i + j] > array[i + j + k]) {
+            for (int j = k % p + thread_id * (2 * k); j < size - k; j += 2 * k * num_threads)
+                for (int i = 0; i < k && (i + j) < size - k; i++)
+                    if ((i + j) / (p * 2) == (i + j + k) / (p * 2))
+                        if (array[i + j] > array[i + j + k])
                             swap(&array[i + j], &array[i + j + k]);
-                        }
-                    }
-                }
-            }
             
             // Синхронизация после каждой фазы
             pthread_barrier_wait(data->barrier);
@@ -114,7 +103,7 @@ int* generate_random_array(int size) {
     }
     
     for (int i = 0; i < size; i++) {
-        array[i] = rand() % INT_MAX;
+        array[i] = rand();
     }
     
     return array;
@@ -154,18 +143,20 @@ int* read_array_from_file(const char* filename, int* size) {
 
 // Проверка отсортированности массива
 int is_sorted(int* array, int size) {
-    for (int i = 0; i < size - 1; i++) {
-        if (array[i] > array[i + 1]) {
+    for (int i = 0; i < size - 1; i++)
+        if (array[i] > array[i + 1])
             return 0;
-        }
-    }
+
     return 1;
 }
 
 // Копирование массива
 int* copy_array(int* src, int size) {
     int* dest = (int*)malloc(size * sizeof(int));
-    if (!dest) return NULL;
+    
+    if (!dest) 
+        return NULL;
+    
     memcpy(dest, src, size * sizeof(int));
     return dest;
 }
@@ -175,15 +166,15 @@ void print_array_partial(int* array, int size, int num_elements) {
     if (num_elements > size) num_elements = size;
     
     printf("Первые %d элементов: ", num_elements);
-    for (int i = 0; i < num_elements; i++) {
+    for (int i = 0; i < num_elements; i++)
         printf("%d ", array[i]);
-    }
+
     printf("\n");
     
     printf("Последние %d элементов: ", num_elements);
-    for (int i = size - num_elements; i < size; i++) {
+    for (int i = size - num_elements; i < size; i++)
         printf("%d ", array[i]);
-    }
+
     printf("\n");
 }
 
@@ -212,13 +203,13 @@ int main(int argc, char* argv[]) {
     
     // Парсинг аргументов командной строки
     for (int i = 1; i < argc; i++) {
-        if (strcmp(argv[i], "-n") == 0 && i + 1 < argc) {
+        if (strcmp(argv[i], "-n") == 0 && i + 1 < argc)
             array_size = atoi(argv[++i]);
-        } else if (strcmp(argv[i], "-t") == 0 && i + 1 < argc) {
+        else if (strcmp(argv[i], "-t") == 0 && i + 1 < argc)
             num_threads = atoi(argv[++i]);
-        } else if (strcmp(argv[i], "-f") == 0 && i + 1 < argc) {
+        else if (strcmp(argv[i], "-f") == 0 && i + 1 < argc)
             filename = argv[++i];
-        } else if (strcmp(argv[i], "-h") == 0) {
+        else if (strcmp(argv[i], "-h") == 0) {
             print_help();
             return 0;
         }
@@ -226,15 +217,14 @@ int main(int argc, char* argv[]) {
     
     // Проверка корректности количества потоков
     int available_cores = get_nprocs();
-    if (num_threads > available_cores * 2) {
-        printf("Предупреждение: Запрошено %d потоков, но система имеет только %d ядер\n", 
-               num_threads, available_cores);
-    }
+    if (num_threads > available_cores * 2)
+        printf("Предупреждение: Запрошено %d потоков, но система имеет только %d ядер\n", num_threads, available_cores);
     
     // Загрузка или генерация массива
     int* array = NULL;
     if (filename) {
         array = read_array_from_file(filename, &array_size);
+
         if (!array) {
             fprintf(stderr, "Не удалось прочитать массив из файла\n");
             return 1;
@@ -342,9 +332,8 @@ int main(int argc, char* argv[]) {
     }
     
     // Ожидание завершения потоков
-    for (int i = 0; i < num_threads; i++) {
+    for (int i = 0; i < num_threads; i++)
         pthread_join(threads[i], NULL);
-    }
     
     double par_time = get_time() - start_time;
     
