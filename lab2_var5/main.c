@@ -209,175 +209,138 @@ void print_help() {
 
 int main(int argc, char* argv[]) {
     int array_size = 1024;
-    int num_threads = 4;
+    int max_threads = 12;
     char* filename = NULL;
-    
+    int benchmark_mode = 0;
+
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-n") == 0 && i + 1 < argc)
             array_size = atoi(argv[++i]);
         else if (strcmp(argv[i], "-t") == 0 && i + 1 < argc)
-            num_threads = atoi(argv[++i]);
+            max_threads = atoi(argv[++i]);
         else if (strcmp(argv[i], "-f") == 0 && i + 1 < argc)
             filename = argv[++i];
+        else if (strcmp(argv[i], "--bench") == 0)
+            benchmark_mode = 1;
         else if (strcmp(argv[i], "-h") == 0) {
             print_help();
+            printf("  --bench         Режим бенчмарка: строит таблицу для графиков\n");
             return 0;
         }
     }
-    
-    int available_cores = get_nprocs();
-    if (num_threads > available_cores * 2)
-        printf("Предупреждение: Запрошено %d потоков, но система имеет только %d ядер\n", num_threads, available_cores);
-    
+
+    srand(time(NULL));
+
     int* array = NULL;
-    
-    if (filename) {
+    if (filename)
         array = read_array_from_file(filename, &array_size);
-
-        if (!array) {
-            fprintf(stderr, "Не удалось прочитать массив из файла\n");
-            return 1;
-        }
-    } 
-    else {
-        if (!is_power_of_two(array_size)) {
-            int new_size = next_power_of_two(array_size);
-            printf("Размер массива изменен с %d на %d (ближайшая степень двойки)\n", 
-                   array_size, new_size);
-            array_size = new_size;
-        }
-        
-        srand(time(NULL));
+    else
         array = generate_random_array(array_size);
-        
-        if (!array) {
-            fprintf(stderr, "Не удалось сгенерировать массив\n");
-            return 1;
-        }
-    }
-    
-    printf("=== Параметры выполнения ===\n");
-    printf("Размер массива: %d\n", array_size);
-    printf("Количество потоков: %d\n", num_threads);
-    printf("Количество ядер в системе: %d\n", available_cores);
-    printf("Массив загружен из файла: %s\n", filename ? "Да" : "Нет (случайный)");
-    
-    printf("\n=== Исходный массив ===\n");
-    print_array_partial(array, array_size, 10);
 
-    int original_size = array_size;
+    if (!array) {
+        fprintf(stderr, "Не удалось получить массив\n");
+        return 1;
+    }
 
     array_size = batcher_prepare_array(&array, array_size);
+
+//
+    if (benchmark_mode) {
+        FILE* csv = fopen("results.csv", "w");
+        
+        if (!csv) {
+            fprintf(stderr, "Ошибка создания файла results.csv\n");
+            return 1;
+        }
+
+        fprintf(csv, "threads,speedup,efficiency,time_seq,time_par\n");
+
+        int* seq_array = copy_array(array, array_size);
+        double start = get_time();
+        batcher_odd_even_sort_sequential(seq_array, array_size);
+        double seq_time = get_time() - start;
+        free(seq_array);
+
+        printf("Время последовательной сортировки: %.6f сек\n", seq_time);
+
+        for (int t = 1; t <= max_threads; t++) {
+            int* array_par = copy_array(array, array_size);
+
+            pthread_barrier_init(&g_barrier, NULL, t);
+            pthread_t* threads = malloc(t * sizeof(pthread_t));
+            thread_data_t* thread_data = malloc(t * sizeof(thread_data_t));
+
+            start = get_time();
+            for (int i = 0; i < t; i++) {
+                thread_data[i].array = array_par;
+                thread_data[i].size = array_size;
+                thread_data[i].thread_id = i;
+                thread_data[i].num_threads = t;
+                thread_data[i].barrier = &g_barrier;
+                pthread_create(&threads[i], NULL, batcher_odd_even_sort_parallel, &thread_data[i]);
+            }
+
+            for (int i = 0; i < t; i++)
+                pthread_join(threads[i], NULL);
+
+            double par_time = get_time() - start;
+
+            pthread_barrier_destroy(&g_barrier);
+
+            free(array_par);
+            free(threads);
+            free(thread_data);
+
+            double speedup = seq_time / par_time;
+            double efficiency = speedup / t;
+
+            fprintf(csv, "%d,%.4f,%.4f,%.6f,%.6f\n", t, speedup, efficiency, seq_time, par_time);
+            printf("Threads: %2d | Time: %.4fs | Speedup: %.2f | Efficiency: %.2f\n",
+                   t, par_time, speedup, efficiency);
+        }
+
+        fclose(csv);
+        printf("\nРезультаты сохранены в файл results.csv\n");
+        free(array);
+
+        return 0;
+    }
+//
 
     int* array_seq = copy_array(array, array_size);
     int* array_par = copy_array(array, array_size);
 
-    if (!array_seq || !array_par) {
-        fprintf(stderr, "Ошибка копирования массива\n");
-        free(array);
-        free(array_seq);
-        free(array_par);
-
-        return 1;
-    }
-    
-//  
-    printf("\n=== Последовательная версия ===\n");
-    
     double start_time = get_time();
     batcher_odd_even_sort_sequential(array_seq, array_size);
     double seq_time = get_time() - start_time;
-    
-    printf("Время выполнения: %.6f секунд\n", seq_time);
-    printf("Массив отсортирован: %s\n", is_sorted(array_seq, original_size) ? "Да" : "Нет");
-    print_array_partial(array_seq, original_size, 10);
-//    
 
-//
-    printf("\n=== Параллельная версия ===\n");
-    
-    if (pthread_barrier_init(&g_barrier, NULL, num_threads) != 0) {
-        fprintf(stderr, "Ошибка инициализации барьера\n");
-        free(array);
-        free(array_seq);
-        free(array_par);
+    printf("Последовательная версия: %.6f сек\n", seq_time);
 
-        return 1;
-    }
-    
-    pthread_t* threads = (pthread_t*)malloc(num_threads * sizeof(pthread_t));
-    thread_data_t* thread_data = (thread_data_t*)malloc(num_threads * sizeof(thread_data_t));
-    
-    if (!threads || !thread_data) {
-        fprintf(stderr, "Ошибка выделения памяти для потоков\n");
-        free(array);
-        free(array_seq);
-        free(array_par);
-        free(threads);
-        free(thread_data);
-        pthread_barrier_destroy(&g_barrier);
+    pthread_barrier_init(&g_barrier, NULL, max_threads);
+    pthread_t* threads = malloc(max_threads * sizeof(pthread_t));
+    thread_data_t* thread_data = malloc(max_threads * sizeof(thread_data_t));
 
-        return 1;
-    }
-    
     start_time = get_time();
-    
-    for (int i = 0; i < num_threads; i++) {
+    for (int i = 0; i < max_threads; i++) {
         thread_data[i].array = array_par;
         thread_data[i].size = array_size;
         thread_data[i].thread_id = i;
-        thread_data[i].num_threads = num_threads;
+        thread_data[i].num_threads = max_threads;
         thread_data[i].barrier = &g_barrier;
-        
-        if (pthread_create(&threads[i], NULL, batcher_odd_even_sort_parallel, &thread_data[i]) != 0) {
-            fprintf(stderr, "Ошибка создания потока %d\n", i);
-            
-            for (int j = 0; j < i; j++) {
-                pthread_cancel(threads[j]);
-                pthread_join(threads[j], NULL);
-            }
-
-            free(array);
-            free(array_seq);
-            free(array_par);
-            free(threads);
-            free(thread_data);
-            pthread_barrier_destroy(&g_barrier);
-
-            return 1;
-        }
+        pthread_create(&threads[i], NULL, batcher_odd_even_sort_parallel, &thread_data[i]);
     }
-    
-    for (int i = 0; i < num_threads; i++)
-        pthread_join(threads[i], NULL);
-    
-    double par_time = get_time() - start_time;
-    
-    printf("Время выполнения: %.6f секунд\n", par_time);
-    printf("Массив отсортирован: %s\n", is_sorted(array_par, original_size) ? "Да" : "Нет");
-    print_array_partial(array_par, original_size, 10);
-//
 
-//
-    printf("\n=== Метрики производительности ===\n");
-    double speedup = seq_time / par_time;
-    double efficiency = speedup / num_threads;
-    
-    printf("Ускорение (Speedup): T1/T%d = %.6f/%.6f = %.4f\n", 
-           num_threads, seq_time, par_time, speedup);
-    printf("Эффективность (Efficiency): S%d/%d = %.4f/%d = %.4f\n", 
-           num_threads, num_threads, speedup, num_threads, efficiency);
-    
-    printf("Результаты идентичны: %s\n", 
-           memcmp(array_seq, array_par, original_size * sizeof(int)) == 0 ? "Да" : "Нет");
-    
-    pthread_barrier_destroy(&g_barrier);
+    for (int i = 0; i < max_threads; i++)
+        pthread_join(threads[i], NULL);
+
+    double par_time = get_time() - start_time;
+
+    printf("Параллельная версия: %.6f сек\n", par_time);
+    printf("Ускорение: %.3f | Эффективность: %.3f\n", seq_time / par_time, (seq_time / par_time) / max_threads);
+
     free(array);
     free(array_seq);
     free(array_par);
-    free(threads);
-    free(thread_data);
-//
-
+    
     return 0;
 }
