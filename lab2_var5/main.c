@@ -196,7 +196,6 @@ double get_time() {
     return ts.tv_sec + ts.tv_nsec / 1e9;
 }
 
-
 void print_help() {
     printf("Использование:\n");
     printf("  ./sort -n <размер> -t <потоки> [-f <файл>]\n");
@@ -212,6 +211,7 @@ int main(int argc, char* argv[]) {
     int max_threads = 12;
     char* filename = NULL;
     int benchmark_mode = 0;
+    int runs = 5;
 
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-n") == 0 && i + 1 < argc)
@@ -222,6 +222,8 @@ int main(int argc, char* argv[]) {
             filename = argv[++i];
         else if (strcmp(argv[i], "--bench") == 0)
             benchmark_mode = 1;
+        else if (strcmp(argv[i], "-r") == 0 && i + 1 < argc)
+            runs = atoi(argv[++i]);
         else if (strcmp(argv[i], "-h") == 0) {
             print_help();
             printf("  --bench         Режим бенчмарка: строит таблицу для графиков\n");
@@ -247,13 +249,12 @@ int main(int argc, char* argv[]) {
 //
     if (benchmark_mode) {
         FILE* csv = fopen("results.csv", "w");
-        
         if (!csv) {
             fprintf(stderr, "Ошибка создания файла results.csv\n");
             return 1;
         }
 
-        fprintf(csv, "threads,speedup,efficiency,time_seq,time_par\n");
+        fprintf(csv, "run,threads,speedup,efficiency,time_seq,time_par\n");
 
         int* seq_array = copy_array(array, array_size);
         double start = get_time();
@@ -263,46 +264,51 @@ int main(int argc, char* argv[]) {
 
         printf("Время последовательной сортировки: %.6f сек\n", seq_time);
 
-        for (int t = 1; t <= max_threads; t++) {
-            int* array_par = copy_array(array, array_size);
+        for (int run = 1; run <= runs; run++) {
+            printf("\n=== Прогон %d/%d ===\n", run, runs);
 
-            pthread_barrier_init(&g_barrier, NULL, t);
-            pthread_t* threads = malloc(t * sizeof(pthread_t));
-            thread_data_t* thread_data = malloc(t * sizeof(thread_data_t));
+            for (int t = 1; t <= max_threads; t++) {
+                int* array_par = copy_array(array, array_size);
 
-            start = get_time();
-            for (int i = 0; i < t; i++) {
-                thread_data[i].array = array_par;
-                thread_data[i].size = array_size;
-                thread_data[i].thread_id = i;
-                thread_data[i].num_threads = t;
-                thread_data[i].barrier = &g_barrier;
-                pthread_create(&threads[i], NULL, batcher_odd_even_sort_parallel, &thread_data[i]);
+                pthread_barrier_init(&g_barrier, NULL, t);
+                pthread_t* threads = malloc(t * sizeof(pthread_t));
+                thread_data_t* thread_data = malloc(t * sizeof(thread_data_t));
+
+                start = get_time();
+                for (int i = 0; i < t; i++) {
+                    thread_data[i].array = array_par;
+                    thread_data[i].size = array_size;
+                    thread_data[i].thread_id = i;
+                    thread_data[i].num_threads = t;
+                    thread_data[i].barrier = &g_barrier;
+                    pthread_create(&threads[i], NULL, batcher_odd_even_sort_parallel, &thread_data[i]);
+                }
+
+                for (int i = 0; i < t; i++)
+                    pthread_join(threads[i], NULL);
+
+                double par_time = get_time() - start;
+
+                pthread_barrier_destroy(&g_barrier);
+
+                free(array_par);
+                free(threads);
+                free(thread_data);
+
+                double speedup = seq_time / par_time;
+                double efficiency = speedup / t;
+
+                fprintf(csv, "%d,%d,%.4f,%.4f,%.6f,%.6f\n",
+                        run, t, speedup, efficiency, seq_time, par_time);
+
+                printf("Run %2d | Threads: %2d | Time: %.4fs | Speedup: %.2f | Efficiency: %.2f\n",
+                    run, t, par_time, speedup, efficiency);
             }
-
-            for (int i = 0; i < t; i++)
-                pthread_join(threads[i], NULL);
-
-            double par_time = get_time() - start;
-
-            pthread_barrier_destroy(&g_barrier);
-
-            free(array_par);
-            free(threads);
-            free(thread_data);
-
-            double speedup = seq_time / par_time;
-            double efficiency = speedup / t;
-
-            fprintf(csv, "%d,%.4f,%.4f,%.6f,%.6f\n", t, speedup, efficiency, seq_time, par_time);
-            printf("Threads: %2d | Time: %.4fs | Speedup: %.2f | Efficiency: %.2f\n",
-                   t, par_time, speedup, efficiency);
         }
 
         fclose(csv);
         printf("\nРезультаты сохранены в файл results.csv\n");
         free(array);
-
         return 0;
     }
 //
