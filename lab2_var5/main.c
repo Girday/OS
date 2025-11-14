@@ -198,17 +198,18 @@ double get_time() {
 
 void print_help() {
     printf("Использование:\n");
-    printf("  ./sort -n <размер> -t <потоки> [-f <файл>]\n");
+    printf("  ./a.out -n <размер> -t <потоки> [-f <файл>]\n");
     printf("Параметры:\n");
     printf("  -n <размер>    Размер массива (по умолчанию: 1024)\n");
     printf("  -t <потоки>    Количество потоков (по умолчанию: 4)\n");
     printf("  -f <файл>      Файл с входными данными (опционально)\n");
     printf("  -h             Вывод этой справки\n");
+    printf("  --bench        Режим бенчмарка: строит таблицу для графиков\n");
 }
 
 int main(int argc, char* argv[]) {
     int array_size = 1024;
-    int max_threads = 12;
+    int max_threads = 4;
     char* filename = NULL;
     int benchmark_mode = 0;
     int runs = 5;
@@ -226,7 +227,6 @@ int main(int argc, char* argv[]) {
             runs = atoi(argv[++i]);
         else if (strcmp(argv[i], "-h") == 0) {
             print_help();
-            printf("  --bench         Режим бенчмарка: строит таблицу для графиков\n");
             return 0;
         }
     }
