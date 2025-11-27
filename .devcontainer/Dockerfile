@@ -11,6 +11,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     cmake \
     ninja-build \
     git \
+    strace \
     pkg-config \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/* \
