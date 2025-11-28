@@ -1,4 +1,4 @@
-#define _XOPEN_SOURCE 700
+#define _XOPEN_SOURCE 700 // POSIX.1-2008
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -53,7 +53,7 @@ int create_and_map_shm(struct shm_region **out) {
     return 0;
 }
 
-int main(void) {
+int main() {
     struct shm_region *shm;
     if (create_and_map_shm(&shm) == -1)
         perror_exit("create_and_map_shm");
@@ -69,7 +69,7 @@ int main(void) {
 
     char out_fname[256];
     printf("Please, enter the NAME of the FILE: ");
-    fflush(stdout);
+    fflush(stdout); // Что делает fflush
 
     if (scanf("%255s", out_fname) != 1) {
         fprintf(stderr, "Failed to read filename\n");
@@ -91,7 +91,7 @@ int main(void) {
 
     while (1) {
         int num;
-        int scan_ok = (scanf("%d", &num) == 1);
+        int scan_ok = (scanf("%d", &num) == 1); // Что возвращает scanf
 
         if (!scan_ok) {
             num = -1;
