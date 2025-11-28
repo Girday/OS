@@ -29,15 +29,21 @@ static void perror_exit(const char *msg) {
 
 int open_and_map_shm(struct shm_region **out) {
     int fd = open(SHM_PATH, O_RDWR);
-    if (fd == -1) return -1;
+
+    if (fd == -1) 
+        return -1;
+    
     size_t sz = sizeof(struct shm_region);
     void *addr = mmap(NULL, sz, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    
     if (addr == MAP_FAILED) {
         close(fd);
         return -1;
     }
+    
     *out = (struct shm_region *)addr;
     close(fd);
+    
     return 0;
 }
 
@@ -60,9 +66,8 @@ int main(int argc, char *argv[]) {
     const char *outfile = argv[1];
 
     struct shm_region *shm;
-    if (open_and_map_shm(&shm) == -1) {
+    if (open_and_map_shm(&shm) == -1)
         perror_exit("open_and_map_shm");
-    }
 
     int fd = open(outfile, O_WRONLY | O_CREAT, 0644);
     if (fd == -1)
@@ -108,6 +113,7 @@ int main(int argc, char *argv[]) {
 
     if (fd != -1) 
         close(fd);
+    
     if (munmap(shm, sizeof(struct shm_region)) == -1) 
         perror("munmap");
 
