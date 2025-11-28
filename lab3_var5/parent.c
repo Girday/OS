@@ -32,7 +32,8 @@ static void perror_exit(const char *msg) {
 
 int create_and_map_shm(struct shm_region **out) {
     int fd = open(SHM_PATH, O_RDWR | O_CREAT, SHM_MODE);
-    if (fd == -1) return -1;
+    if (fd == -1) 
+        return -1;
 
     size_t sz = sizeof(struct shm_region);
     if (ftruncate(fd, sz) == -1) {
@@ -48,6 +49,7 @@ int create_and_map_shm(struct shm_region **out) {
 
     *out = (struct shm_region *)addr;
     close(fd);
+
     return 0;
 }
 
@@ -61,6 +63,7 @@ int main(void) {
     
     if (sem_init(&shm->sem_parent, 1, 0) == -1) 
         perror_exit("sem_init sem_parent");
+    
     if (sem_init(&shm->sem_child, 1, 0) == -1) 
         perror_exit("sem_init sem_child");
 
@@ -74,7 +77,8 @@ int main(void) {
     }
 
     pid_t pid = fork();
-    if (pid == -1) perror_exit("fork");
+    if (pid == -1) 
+        perror_exit("fork");
 
     if (pid == 0) {
         execl("./child.out", "child.out", out_fname, NULL);
@@ -125,6 +129,7 @@ int main(void) {
 
     if (sem_destroy(&shm->sem_parent) == -1) 
         perror("sem_destroy sem_parent");
+    
     if (sem_destroy(&shm->sem_child) == -1) 
         perror("sem_destroy sem_child");
 
