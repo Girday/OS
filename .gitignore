@@ -27,8 +27,8 @@ a.out
 *.la
 *.lo
 *.dll
-*.so
-*.so.*
+# *.so
+# *.so.*
 *.dylib
 
 # Debug files
