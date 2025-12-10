@@ -1,4 +1,5 @@
 #include <math.h>
+#include "lib.h"
 
 double SinIntegral(double A, double B, double e) {
     double sum = 0.0;
