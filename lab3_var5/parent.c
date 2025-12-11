@@ -69,7 +69,7 @@ int main() {
 
     char out_fname[256];
     printf("Please, enter the NAME of the FILE: ");
-    fflush(stdout); // Что делает fflush
+    fflush(stdout);
 
     if (scanf("%255s", out_fname) != 1) {
         fprintf(stderr, "Failed to read filename\n");
@@ -91,7 +91,7 @@ int main() {
 
     while (1) {
         int num;
-        int scan_ok = (scanf("%d", &num) == 1); // Что возвращает scanf
+        int scan_ok = (scanf("%d", &num) == 1);
 
         if (!scan_ok) {
             num = -1;
