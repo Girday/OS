@@ -87,7 +87,6 @@ int main() {
     }
 
     printf("Enter numbers (one per line):\n");
-    fflush(stdout);
 
     while (1) {
         int num;
