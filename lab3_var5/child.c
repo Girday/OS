@@ -29,7 +29,6 @@ static void perror_exit(const char *msg) {
 
 int open_and_map_shm(struct shm_region **out) {
     int fd = open(SHM_PATH, O_RDWR);
-
     if (fd == -1) 
         return -1;
     
