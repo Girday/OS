@@ -3,7 +3,7 @@
 
 #include "../my_libs/lib.h"
 
-void demostration() {
+void demonstration() {
     printf("Функция SinIntegral(0, x, 0.0001)\n");
     printf("%-5s %-24s %-21s %-20s\n", "x", "Результат", "Точное", "Погрешность");
     
@@ -90,7 +90,7 @@ void console() {
 }
 
 int main() {    
-    demostration();
+    demonstration();
     console();    
     return 0;
 }
