@@ -120,6 +120,68 @@ int join_group(const char* groupname, const char* username) {
     return 0;
 }
 
+int leave_group(const char* groupname, const char* username) {
+    int group_idx = find_group(groupname);
+    if (group_idx == -1)
+        return -1;
+    
+    Group* group = &server_state.groups[group_idx];
+    
+    int found = -1;
+    for (int i = 0; i < group->member_count; i++)
+        if (strcmp(group->members[i], username) == 0) {
+            found = i;
+            break;
+        }
+    
+    if (found == -1)
+        return -2;
+    
+    for (int i = found; i < group->member_count - 1; i++)
+        strcpy(group->members[i], group->members[i + 1]);
+    group->member_count--;
+    
+    printf("[INFO] User '%s' left group '%s'\n", username, groupname);
+    return 0;
+}
+
+void get_user_groups(const char* username, char* result, int max_len) {
+    result[0] = '\0';
+    int first = 1;
+    
+    for (int i = 0; i < server_state.group_count; i++) {
+        if (!server_state.groups[i].active) continue;
+        
+        Group* group = &server_state.groups[i];
+        for (int j = 0; j < group->member_count; j++)
+            if (strcmp(group->members[j], username) == 0) {
+                if (!first) strcat(result, " ");
+                strcat(result, group->groupname);
+                first = 0;
+                break;
+            }
+    }
+    
+    if (result[0] == '\0')
+        strcpy(result, "(none)");
+}
+
+int get_group_members(const char* groupname, char* result, int max_len) {
+    int group_idx = find_group(groupname);
+    if (group_idx == -1)
+        return -1;
+    
+    Group* group = &server_state.groups[group_idx];
+    result[0] = '\0';
+    
+    for (int i = 0; i < group->member_count; i++) {
+        if (i > 0) strcat(result, " ");
+        strcat(result, group->members[i]);
+    }
+    
+    return 0;
+}
+
 void handle_login(void* router, char* msg, char* identity, int id_len) {
     char username[MAX_USERNAME_LEN];
     char response[MAX_MSG_LEN];
@@ -351,10 +413,6 @@ int main(void) {
         
         message[msg_len] = '\0';
         
-        printf("[RECV] Message: %s\n", message);
-        printf("[DEBUG] Received %d bytes from client\n", msg_len);
-        printf("[DEBUG] Identity length: %d\n", id_len);
-        
         if (strncmp(message, "LOGIN ", 6) == 0)
             handle_login(router, message, identity, id_len);
         else if (strncmp(message, "PRIVATE_MSG ", 12) == 0)
@@ -369,6 +427,54 @@ int main(void) {
             handle_list_users(router, identity, id_len);
         else if (strcmp(message, "LIST_GROUPS") == 0)
             handle_list_groups(router, identity, id_len);
+        else if (strncmp(message, "LEAVE_GROUP ", 12) == 0) {
+            char username[MAX_USERNAME_LEN];
+            char groupname[MAX_GROUPNAME_LEN];
+            char response[MAX_MSG_LEN];
+            
+            sscanf(message, "LEAVE_GROUP %s %s", username, groupname);
+            
+            int result = leave_group(groupname, username);
+            
+            if (result == 0)
+                snprintf(response, MAX_MSG_LEN, "GROUP_LEFT You left group '%s'", groupname);
+            else if (result == -1)
+                snprintf(response, MAX_MSG_LEN, "ERROR Group '%s' not found", groupname);
+            else
+                snprintf(response, MAX_MSG_LEN, "ERROR You are not in group '%s'", groupname);
+            
+            zmq_send(router, identity, id_len, ZMQ_SNDMORE);
+            zmq_send(router, response, strlen(response), 0);
+        }
+        else if (strncmp(message, "MY_GROUPS ", 10) == 0) {
+            char username[MAX_USERNAME_LEN];
+            char groups[MAX_MSG_LEN];
+            char response[MAX_MSG_LEN];
+            
+            sscanf(message, "MY_GROUPS %s", username);
+            get_user_groups(username, groups, MAX_MSG_LEN);
+            
+            snprintf(response, MAX_MSG_LEN, "MY_GROUPS %s", groups);
+            zmq_send(router, identity, id_len, ZMQ_SNDMORE);
+            zmq_send(router, response, strlen(response), 0);
+        }
+        else if (strncmp(message, "GROUP_MEMBERS ", 14) == 0) {
+            char groupname[MAX_GROUPNAME_LEN];
+            char members[MAX_MSG_LEN];
+            char response[MAX_MSG_LEN];
+            
+            sscanf(message, "GROUP_MEMBERS %s", groupname);
+            
+            int result = get_group_members(groupname, members, MAX_MSG_LEN);
+            
+            if (result == 0)
+                snprintf(response, MAX_MSG_LEN, "MEMBERS %s: %s", groupname, members);
+            else
+                snprintf(response, MAX_MSG_LEN, "ERROR Group '%s' not found", groupname);
+            
+            zmq_send(router, identity, id_len, ZMQ_SNDMORE);
+            zmq_send(router, response, strlen(response), 0);
+        }
         else if (strncmp(message, "LOGOUT ", 7) == 0) {
             char username[MAX_USERNAME_LEN];
             sscanf(message, "LOGOUT %s", username);

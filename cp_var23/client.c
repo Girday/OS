@@ -4,6 +4,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <signal.h>
 
 #define MAX_MSG_LEN 4096
 #define MAX_USERNAME_LEN 50
@@ -12,6 +13,13 @@ char username[MAX_USERNAME_LEN];
 void* socket_global = NULL;
 int running = 1;
 int logged_in = 0;
+
+void signal_handler(int signum) {
+    if (signum == SIGINT) {
+        printf("\n\nReceived interrupt signal. Exiting...\n");
+        running = 0;
+    }
+}
 
 void* receive_thread(void* arg) {
     void* socket = (void*)arg;
@@ -65,6 +73,18 @@ void* receive_thread(void* arg) {
                 printf("\n[✓]: %s\n> ", buffer + 13);
                 fflush(stdout);
             }
+            else if (strncmp(buffer, "GROUP_LEFT", 10) == 0) {
+                printf("\n[✓]: %s\n> ", buffer + 11);
+                fflush(stdout);
+            }
+            else if (strncmp(buffer, "MY_GROUPS ", 10) == 0) {
+                printf("\n=== Your Groups ===\n%s\n> ", buffer + 10);
+                fflush(stdout);
+            }
+            else if (strncmp(buffer, "MEMBERS ", 8) == 0) {
+                printf("\n=== %s\n> ", buffer + 8);
+                fflush(stdout);
+            }
             else if (strncmp(buffer, "USERS ", 6) == 0) {
                 printf("\n=== Online Users ===\n%s\n> ", buffer + 6);
                 fflush(stdout);
@@ -73,13 +93,22 @@ void* receive_thread(void* arg) {
                 printf("\n=== Available Groups ===\n%s\n> ", buffer + 7);
                 fflush(stdout);
             }
+            else if (strncmp(buffer, "LOGOUT_OK", 9) == 0) {
+            }
             else {
                 printf("\n[SERVER]: %s\n> ", buffer);
                 fflush(stdout);
             }
+        } else if (size == -1 && errno == EAGAIN) {
+        } else if (size == -1) {
+            if (running) {
+                printf("\n[Connection lost]\n");
+                running = 0;
+            }
+            break;
         }
         
-        usleep(100000);
+        usleep(50000);
     }
     
     return NULL;
@@ -90,7 +119,10 @@ void print_help() {
     printf("/msg <username> <message>  - Send private message\n");
     printf("/create <groupname>        - Create a group chat\n");
     printf("/join <groupname>          - Join a group chat\n");
+    printf("/leave <groupname>         - Leave a group chat\n");
     printf("/group <groupname> <msg>   - Send message to group\n");
+    printf("/members <groupname>       - List group members\n");
+    printf("/my_groups                 - List your groups\n");
     printf("/users                     - List online users\n");
     printf("/groups                    - List available groups\n");
     printf("/help                      - Show this help\n");
@@ -105,15 +137,13 @@ int main(int argc, char* argv[]) {
         return 1;
     }
     
+    signal(SIGINT, signal_handler);
+    
     printf("=== ZeroMQ Message Client ===\n");
     printf("Connecting to %s\n\n", argv[1]);
     
     void* context = zmq_ctx_new();
     void* dealer = zmq_socket(context, ZMQ_DEALER);
-    
-    int timeout = 5000;
-    zmq_setsockopt(dealer, ZMQ_RCVTIMEO, &timeout, sizeof(timeout));
-    zmq_setsockopt(dealer, ZMQ_SNDTIMEO, &timeout, sizeof(timeout));
     
     int rc = zmq_connect(dealer, argv[1]);
     if (rc != 0) {
@@ -137,8 +167,8 @@ int main(int argc, char* argv[]) {
     snprintf(login_msg, MAX_MSG_LEN, "LOGIN %s", username);
     
     printf("Sending login request...\n");
-    int sent = zmq_send(dealer, login_msg, strlen(login_msg), 0);
-    if (sent == -1) {
+    int sent = zmq_send(dealer, login_msg, strlen(login_msg), ZMQ_DONTWAIT);
+    if (sent == -1 && errno != EAGAIN) {
         printf("Failed to send login: %s\n", zmq_strerror(errno));
         running = 0;
         pthread_join(recv_thread, NULL);
@@ -146,7 +176,7 @@ int main(int argc, char* argv[]) {
         zmq_ctx_destroy(context);
         return 1;
     }
-    printf("Login request sent (%d bytes)\n", sent);
+    printf("Login request sent (%d bytes)\n", sent > 0 ? sent : 0);
     
     int wait_count = 0;
     while (!logged_in && wait_count < 30 && running) {
@@ -154,13 +184,20 @@ int main(int argc, char* argv[]) {
         wait_count++;
     }
     
-    if (!logged_in) {
+    if (!logged_in && running) {
         printf("Login timeout. Server not responding.\n");
         running = 0;
         pthread_join(recv_thread, NULL);
         zmq_close(dealer);
         zmq_ctx_destroy(context);
         return 1;
+    }
+    
+    if (!running) {
+        pthread_join(recv_thread, NULL);
+        zmq_close(dealer);
+        zmq_ctx_destroy(context);
+        return 0;
     }
     
     print_help();
@@ -170,6 +207,9 @@ int main(int argc, char* argv[]) {
     fflush(stdout);
     
     while (running && fgets(input, MAX_MSG_LEN, stdin) != NULL) {
+        if (!running)
+            break;
+        
         input[strcspn(input, "\n")] = 0;
         
         if (strlen(input) == 0) {
@@ -194,12 +234,20 @@ int main(int argc, char* argv[]) {
             running = 0;
             break;
         }
-        else if (strcmp(input, "/help") == 0)
+        else if (strcmp(input, "/help") == 0) {
             print_help();
-        else if (strcmp(input, "/users") == 0)
-            zmq_send(dealer, "LIST_USERS", 10, 0);
-        else if (strcmp(input, "/groups") == 0)
-            zmq_send(dealer, "LIST_GROUPS", 11, 0);
+        }
+        else if (strcmp(input, "/users") == 0) {
+            zmq_send(dealer, "LIST_USERS", 10, ZMQ_DONTWAIT);
+        }
+        else if (strcmp(input, "/groups") == 0) {
+            zmq_send(dealer, "LIST_GROUPS", 11, ZMQ_DONTWAIT);
+        }
+        else if (strcmp(input, "/my_groups") == 0) {
+            char cmd[MAX_MSG_LEN];
+            snprintf(cmd, MAX_MSG_LEN, "MY_GROUPS %s", username);
+            zmq_send(dealer, cmd, strlen(cmd), ZMQ_DONTWAIT);
+        }
         else if (strncmp(input, "/msg ", 5) == 0) {
             char recipient[MAX_USERNAME_LEN];
             char message[MAX_MSG_LEN];
@@ -207,7 +255,7 @@ int main(int argc, char* argv[]) {
             if (sscanf(input, "/msg %s %[^\n]", recipient, message) == 2) {
                 char cmd[MAX_MSG_LEN];
                 snprintf(cmd, MAX_MSG_LEN, "PRIVATE_MSG %s %s %s", username, recipient, message);
-                zmq_send(dealer, cmd, strlen(cmd), 0);
+                zmq_send(dealer, cmd, strlen(cmd), ZMQ_DONTWAIT);
             } else
                 printf("Usage: /msg <username> <message>\n");
         }
@@ -217,7 +265,7 @@ int main(int argc, char* argv[]) {
             if (sscanf(input, "/create %s", groupname) == 1) {
                 char cmd[MAX_MSG_LEN];
                 snprintf(cmd, MAX_MSG_LEN, "CREATE_GROUP %s %s", username, groupname);
-                zmq_send(dealer, cmd, strlen(cmd), 0);
+                zmq_send(dealer, cmd, strlen(cmd), ZMQ_DONTWAIT);
             } else
                 printf("Usage: /create <groupname>\n");
         }
@@ -227,9 +275,29 @@ int main(int argc, char* argv[]) {
             if (sscanf(input, "/join %s", groupname) == 1) {
                 char cmd[MAX_MSG_LEN];
                 snprintf(cmd, MAX_MSG_LEN, "JOIN_GROUP %s %s", username, groupname);
-                zmq_send(dealer, cmd, strlen(cmd), 0);
+                zmq_send(dealer, cmd, strlen(cmd), ZMQ_DONTWAIT);
             } else
                 printf("Usage: /join <groupname>\n");
+        }
+        else if (strncmp(input, "/leave ", 7) == 0) {
+            char groupname[MAX_USERNAME_LEN];
+            
+            if (sscanf(input, "/leave %s", groupname) == 1) {
+                char cmd[MAX_MSG_LEN];
+                snprintf(cmd, MAX_MSG_LEN, "LEAVE_GROUP %s %s", username, groupname);
+                zmq_send(dealer, cmd, strlen(cmd), ZMQ_DONTWAIT);
+            } else
+                printf("Usage: /leave <groupname>\n");
+        }
+        else if (strncmp(input, "/members ", 9) == 0) {
+            char groupname[MAX_USERNAME_LEN];
+            
+            if (sscanf(input, "/members %s", groupname) == 1) {
+                char cmd[MAX_MSG_LEN];
+                snprintf(cmd, MAX_MSG_LEN, "GROUP_MEMBERS %s", groupname);
+                zmq_send(dealer, cmd, strlen(cmd), ZMQ_DONTWAIT);
+            } else
+                printf("Usage: /members <groupname>\n");
         }
         else if (strncmp(input, "/group ", 7) == 0) {
             char groupname[MAX_USERNAME_LEN];
@@ -238,18 +306,21 @@ int main(int argc, char* argv[]) {
             if (sscanf(input, "/group %s %[^\n]", groupname, message) == 2) {
                 char cmd[MAX_MSG_LEN];
                 snprintf(cmd, MAX_MSG_LEN, "GROUP_MSG %s %s %s", username, groupname, message);
-                zmq_send(dealer, cmd, strlen(cmd), 0);
+                zmq_send(dealer, cmd, strlen(cmd), ZMQ_DONTWAIT);
             } else
                 printf("Usage: /group <groupname> <message>\n");
         }
         else
             printf("Unknown command. Type /help for available commands.\n");
         
-        printf("> ");
-        fflush(stdout);
+        if (running) {
+            printf("> ");
+            fflush(stdout);
+        }
     }
     
     running = 0;
+    
     pthread_join(recv_thread, NULL);
     
     zmq_close(dealer);
