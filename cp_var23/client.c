@@ -181,10 +181,15 @@ int main(int argc, char* argv[]) {
         if (strcmp(input, "/quit") == 0) {
             char logout_msg[MAX_MSG_LEN];
             snprintf(logout_msg, MAX_MSG_LEN, "LOGOUT %s", username);
-            zmq_send(dealer, logout_msg, strlen(logout_msg), 0);
             
             printf("Logging out...\n");
-            sleep(1);
+            int sent = zmq_send(dealer, logout_msg, strlen(logout_msg), ZMQ_DONTWAIT);
+            
+            if (sent == -1)
+                printf("Server is unreachable. Closing connection.\n");
+            else
+                usleep(200000);
+            
             printf("Goodbye!\n");
             running = 0;
             break;
