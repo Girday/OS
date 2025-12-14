@@ -14,6 +14,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     strace \
     pkg-config \
     ca-certificates \
+    libzmq3-dev \
     && rm -rf /var/lib/apt/lists/* \
     && update-ca-certificates
 
