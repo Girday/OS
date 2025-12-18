@@ -1,0 +1,79 @@
+execve("./a.out", ["./a.out"], 0xffffd89248d0 /* 27 vars */) = 0
+brk(NULL)                               = 0xaaaaed291000
+mmap(NULL, 8192, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) = 0xffffb2d33000
+faccessat(AT_FDCWD, "/etc/ld.so.preload", R_OK) = -1 ENOENT (No such file or directory)
+openat(AT_FDCWD, "/etc/ld.so.cache", O_RDONLY|O_CLOEXEC) = 3
+newfstatat(3, "", {st_mode=S_IFREG|0644, st_size=12988, ...}, AT_EMPTY_PATH) = 0
+mmap(NULL, 12988, PROT_READ, MAP_PRIVATE, 3, 0) = 0xffffb2d2f000
+close(3)                                = 0
+openat(AT_FDCWD, "/lib/aarch64-linux-gnu/libc.so.6", O_RDONLY|O_CLOEXEC) = 3
+read(3, "\177ELF\2\1\1\3\0\0\0\0\0\0\0\0\3\0\267\0\1\0\0\0\360u\2\0\0\0\0\0"..., 832) = 832
+newfstatat(3, "", {st_mode=S_IFREG|0755, st_size=1661968, ...}, AT_EMPTY_PATH) = 0
+mmap(NULL, 1830504, PROT_NONE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) = 0xffffb2b40000
+mmap(0xffffb2b40000, 1764968, PROT_READ|PROT_EXEC, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0) = 0xffffb2b40000
+munmap(0xffffb2cef000, 65128)           = 0
+mprotect(0xffffb2cce000, 61440, PROT_NONE) = 0
+mmap(0xffffb2cdd000, 24576, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x18d000) = 0xffffb2cdd000
+mmap(0xffffb2ce3000, 48744, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_ANONYMOUS, -1, 0) = 0xffffb2ce3000
+close(3)                                = 0
+set_tid_address(0xffffb2d33f50)         = 4048
+set_robust_list(0xffffb2d33f60, 24)     = 0
+rseq(0xffffb2d34620, 0x20, 0, 0xd428bc00) = 0
+mprotect(0xffffb2cdd000, 16384, PROT_READ) = 0
+mprotect(0xaaaad1cd2000, 4096, PROT_READ) = 0
+mprotect(0xffffb2d39000, 8192, PROT_READ) = 0
+prlimit64(0, RLIMIT_STACK, NULL, {rlim_cur=8192*1024, rlim_max=RLIM64_INFINITY}) = 0
+munmap(0xffffb2d2f000, 12988)           = 0
+pipe2([3, 4], 0)                        = 0
+pipe2([5, 6], 0)                        = 0
+newfstatat(1, "", {st_mode=S_IFCHR|0620, st_rdev=makedev(0x88, 0), ...}, AT_EMPTY_PATH) = 0
+getrandom("\xf1\xea\xbd\xda\x2e\x32\x17\x90", 8, GRND_NONBLOCK) = 8
+brk(NULL)                               = 0xaaaaed291000
+brk(0xaaaaed2b2000)                     = 0xaaaaed2b2000
+write(1, "Please, enter the NAME of the FI"..., 36) = 36
+newfstatat(0, "", {st_mode=S_IFCHR|0620, st_rdev=makedev(0x88, 0), ...}, AT_EMPTY_PATH) = 0
+read(0, "out.txt\n", 1024)              = 8
+clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0xffffb2d33f50) = 4085
+close(3)                                = 0
+close(6)                                = 0
+write(1, "Enter numbers (one per line):\n", 30) = 30
+pselect6(6, [0 5], NULL, NULL, NULL, NULL) = 1 (in [0])
+read(0, "45\n", 1024)                   = 3
+newfstatat(4, "", {st_mode=S_IFIFO|0600, st_size=0, ...}, AT_EMPTY_PATH) = 0
+lseek(4, 0, SEEK_CUR)                   = -1 ESPIPE (Illegal seek)
+write(4, "45\n", 3)                     = 3
+pselect6(6, [0 5], NULL, NULL, NULL, NULL) = 1 (in [0])
+read(0, "4\n", 1024)                    = 2
+newfstatat(4, "", {st_mode=S_IFIFO|0600, st_size=0, ...}, AT_EMPTY_PATH) = 0
+lseek(4, 0, SEEK_CUR)                   = -1 ESPIPE (Illegal seek)
+write(4, "4\n", 2)                      = 2
+pselect6(6, [0 5], NULL, NULL, NULL, NULL) = 1 (in [0])
+read(0, "24\n", 1024)                   = 3
+newfstatat(4, "", {st_mode=S_IFIFO|0600, st_size=0, ...}, AT_EMPTY_PATH) = 0
+lseek(4, 0, SEEK_CUR)                   = -1 ESPIPE (Illegal seek)
+write(4, "24\n", 3)                     = 3
+pselect6(6, [0 5], NULL, NULL, NULL, NULL) = 1 (in [0])
+read(0, "12\n", 1024)                   = 3
+newfstatat(4, "", {st_mode=S_IFIFO|0600, st_size=0, ...}, AT_EMPTY_PATH) = 0
+lseek(4, 0, SEEK_CUR)                   = -1 ESPIPE (Illegal seek)
+write(4, "12\n", 3)                     = 3
+pselect6(6, [0 5], NULL, NULL, NULL, NULL) = 1 (in [0])
+read(0, "90\n", 1024)                   = 3
+newfstatat(4, "", {st_mode=S_IFIFO|0600, st_size=0, ...}, AT_EMPTY_PATH) = 0
+lseek(4, 0, SEEK_CUR)                   = -1 ESPIPE (Illegal seek)
+write(4, "90\n", 3)                     = 3
+pselect6(6, [0 5], NULL, NULL, NULL, NULL) = 1 (in [0])
+read(0, "3\n", 1024)                    = 2
+newfstatat(4, "", {st_mode=S_IFIFO|0600, st_size=0, ...}, AT_EMPTY_PATH) = 0
+lseek(4, 0, SEEK_CUR)                   = -1 ESPIPE (Illegal seek)
+write(4, "3\n", 2)                      = 2
+--- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=4085, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+pselect6(6, [0 5], NULL, NULL, NULL, NULL) = 1 (in [5])
+read(5, "\1\0\0\0", 4)                  = 4
+write(1, "FINISH child -> parent\n", 23) = 23
+close(4)                                = 0
+close(5)                                = 0
+wait4(-1, NULL, 0, NULL)                = 4085
+lseek(0, -1, SEEK_CUR)                  = -1 ESPIPE (Illegal seek)
+exit_group(0)                           = ?
++++ exited with 0 +++
