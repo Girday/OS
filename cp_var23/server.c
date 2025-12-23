@@ -37,6 +37,7 @@ typedef struct {
 ServerState server_state = {0};
 
 int find_user(const char* username) {
+    /* Возвращает индекс пользователя или -1, если не найден */
     for (int i = 0; i < server_state.user_count; i++)
         if (server_state.users[i].active && 
             strcmp(server_state.users[i].username, username) == 0)
@@ -45,6 +46,7 @@ int find_user(const char* username) {
 }
 
 int find_group(const char* groupname) {
+    /* Возвращает индекс группы или -1, если не найден */
     for (int i = 0; i < server_state.group_count; i++)
         if (server_state.groups[i].active && 
             strcmp(server_state.groups[i].groupname, groupname) == 0)
@@ -53,6 +55,9 @@ int find_group(const char* groupname) {
 }
 
 int add_user(const char* username, const char* identity, int identity_len) {
+    /* Возвращает индекс нового пользователя 
+        или -1, если сервер полон, 
+        или -2, если имя уже занято */
     if (server_state.user_count >= MAX_USERS)
         return -1;
     
@@ -71,6 +76,7 @@ int add_user(const char* username, const char* identity, int identity_len) {
 }
 
 int remove_user(const char* username) {
+    /* Возвращает 0 при успехе или -1, если не найден */
     int idx = find_user(username);
     if (idx == -1)
         return -1;
@@ -81,6 +87,9 @@ int remove_user(const char* username) {
 }
 
 int create_group(const char* groupname, const char* creator) {
+    /* Возвращает индекс новой группы
+        или -1, если сервер полон,
+        или -2, если имя уже занято  */
     if (server_state.group_count >= MAX_GROUPS)
         return -1;
     
@@ -99,6 +108,10 @@ int create_group(const char* groupname, const char* creator) {
 }
 
 int join_group(const char* groupname, const char* username) {
+    /* Возвращает 0 при успехе
+        или -1, если группа не найдена,
+        или -2, если пользователь уже состоит в группе,
+        или -3, если группа переполнена */
     int group_idx = find_group(groupname);
     if (group_idx == -1)
         return -1;
@@ -108,7 +121,6 @@ int join_group(const char* groupname, const char* username) {
     for (int i = 0; i < group->member_count; i++)
         if (strcmp(group->members[i], username) == 0)
             return -2;
-
     
     if (group->member_count >= MAX_GROUP_MEMBERS)
         return -3;
@@ -121,6 +133,9 @@ int join_group(const char* groupname, const char* username) {
 }
 
 int leave_group(const char* groupname, const char* username) {
+    /* Возвращает 0 при успехе
+        или -1, если группа не найдена,
+        или -2, если пользователь не состоит в группе */ 
     int group_idx = find_group(groupname);
     if (group_idx == -1)
         return -1;
@@ -146,16 +161,19 @@ int leave_group(const char* groupname, const char* username) {
 }
 
 void get_user_groups(const char* username, char* result, int max_len) {
+    /* Записывает группы пользователя в result */
     result[0] = '\0';
     int first = 1;
     
     for (int i = 0; i < server_state.group_count; i++) {
-        if (!server_state.groups[i].active) continue;
+        if (!server_state.groups[i].active) 
+            continue;
         
         Group* group = &server_state.groups[i];
         for (int j = 0; j < group->member_count; j++)
             if (strcmp(group->members[j], username) == 0) {
-                if (!first) strcat(result, " ");
+                if (!first) 
+                    strcat(result, " ");
                 strcat(result, group->groupname);
                 first = 0;
                 break;
@@ -167,6 +185,8 @@ void get_user_groups(const char* username, char* result, int max_len) {
 }
 
 int get_group_members(const char* groupname, char* result, int max_len) {
+    /* Записывает участников группы в result
+       Возвращает 0 при успехе или -1 если группа не найдена */
     int group_idx = find_group(groupname);
     if (group_idx == -1)
         return -1;
@@ -175,7 +195,8 @@ int get_group_members(const char* groupname, char* result, int max_len) {
     result[0] = '\0';
     
     for (int i = 0; i < group->member_count; i++) {
-        if (i > 0) strcat(result, " ");
+        if (i > 0)
+            strcat(result, " ");
         strcat(result, group->members[i]);
     }
     
@@ -183,6 +204,11 @@ int get_group_members(const char* groupname, char* result, int max_len) {
 }
 
 void handle_login(void* router, char* msg, char* identity, int id_len) {
+    /* Обработка входа на сервер
+        router - ZeroMQ сокет
+        msg - текст команды
+        identity и id_len - идентификатор клиента
+    */
     char username[MAX_USERNAME_LEN];
     char response[MAX_MSG_LEN];
     
@@ -202,24 +228,33 @@ void handle_login(void* router, char* msg, char* identity, int id_len) {
 }
 
 void handle_private_msg(void* router, char* msg, char* sender_identity, int sender_id_len) {
+    /* Обработка личного сообщения
+        router - ZeroMQ сокет
+        msg - текст команды
+        sender_identity и sender_id_len - идентификатор отправителя
+    */
     char sender[MAX_USERNAME_LEN];
     char recipient[MAX_USERNAME_LEN];
     char message[MAX_MSG_LEN];
     char response[MAX_MSG_LEN];
     
     char* token = strtok(msg, " ");
-    if (token == NULL) return;
+    if (token == NULL)
+        return;
     
     token = strtok(NULL, " ");
-    if (token == NULL) return;
+    if (token == NULL)
+        return;
     strncpy(sender, token, MAX_USERNAME_LEN - 1);
     
     token = strtok(NULL, " ");
-    if (token == NULL) return;
+    if (token == NULL)
+        return;
     strncpy(recipient, token, MAX_USERNAME_LEN - 1);
     
     token = strtok(NULL, "");
-    if (token == NULL) return;
+    if (token == NULL)
+        return;
     strncpy(message, token, MAX_MSG_LEN - 1);
     
     int recipient_idx = find_user(recipient);
@@ -247,6 +282,11 @@ void handle_private_msg(void* router, char* msg, char* sender_identity, int send
 }
 
 void handle_create_group(void* router, char* msg, char* identity, int id_len) {
+    /* Обработка создания группы
+        router - ZeroMQ сокет
+        msg - текст команды
+        identity и id_len - идентификатор создателя
+    */
     char username[MAX_USERNAME_LEN];
     char groupname[MAX_GROUPNAME_LEN];
     char response[MAX_MSG_LEN];
@@ -267,6 +307,11 @@ void handle_create_group(void* router, char* msg, char* identity, int id_len) {
 }
 
 void handle_join_group(void* router, char* msg, char* identity, int id_len) {
+    /* Обработка присоединения к группе
+        router - ZeroMQ сокет
+        msg - текст команды
+        identity и id_len - идентификатор клиента
+    */
     char username[MAX_USERNAME_LEN];
     char groupname[MAX_GROUPNAME_LEN];
     char response[MAX_MSG_LEN];
@@ -289,24 +334,33 @@ void handle_join_group(void* router, char* msg, char* identity, int id_len) {
 }
 
 void handle_group_msg(void* router, char* msg, char* sender_identity, int sender_id_len) {
+    /* Обработка группового сообщения
+        router - ZeroMQ сокет
+        msg - текст команды
+        sender_identity и sender_id_len - идентификатор отправителя
+    */
     char sender[MAX_USERNAME_LEN];
     char groupname[MAX_GROUPNAME_LEN];
     char message[MAX_MSG_LEN];
     char response[MAX_MSG_LEN];
     
     char* token = strtok(msg, " ");
-    if (token == NULL) return;
+    if (token == NULL)
+        return;
     
     token = strtok(NULL, " ");
-    if (token == NULL) return;
+    if (token == NULL)
+        return;
     strncpy(sender, token, MAX_USERNAME_LEN - 1);
     
     token = strtok(NULL, " ");
-    if (token == NULL) return;
+    if (token == NULL)
+        return;
     strncpy(groupname, token, MAX_GROUPNAME_LEN - 1);
     
     token = strtok(NULL, "");
-    if (token == NULL) return;
+    if (token == NULL)
+        return;
     strncpy(message, token, MAX_MSG_LEN - 1);
     
     int group_idx = find_group(groupname);
@@ -359,6 +413,10 @@ void handle_group_msg(void* router, char* msg, char* sender_identity, int sender
 }
 
 void handle_list_users(void* router, char* identity, int id_len) {
+    /* Обработка запроса списка активных пользователей
+        router - ZeroMQ сокет
+        identity и id_len - идентификатор клиента
+    */
     char response[MAX_MSG_LEN] = "USERS";
     
     for (int i = 0; i < server_state.user_count; i++)
@@ -372,6 +430,10 @@ void handle_list_users(void* router, char* identity, int id_len) {
 }
 
 void handle_list_groups(void* router, char* identity, int id_len) {
+    /* Обработка запроса списка групп
+        router - ZeroMQ сокет
+        identity и id_len - идентификатор клиента
+    */
     char response[MAX_MSG_LEN] = "GROUPS";
     
     for (int i = 0; i < server_state.group_count; i++)
@@ -384,13 +446,12 @@ void handle_list_groups(void* router, char* identity, int id_len) {
     zmq_send(router, response, strlen(response), 0);
 }
 
-int main(void) {
+int main() {
     printf("=== ZeroMQ Message Server ===\n");
     printf("Starting server on tcp://*:5555\n\n");
     
     void* context = zmq_ctx_new();
     void* router = zmq_socket(context, ZMQ_ROUTER);
-    
     int rc = zmq_bind(router, "tcp://*:5555");
     if (rc != 0) {
         printf("Error binding socket: %s\n", zmq_strerror(errno));
@@ -496,6 +557,6 @@ int main(void) {
     
     zmq_close(router);
     zmq_ctx_destroy(context);
-    
+        
     return 0;
 }

@@ -15,6 +15,7 @@ int running = 1;
 int logged_in = 0;
 
 void signal_handler(int signum) {
+    /* Обработка сигнала Ctrl+C */
     if (signum == SIGINT) {
         printf("\n\nReceived interrupt signal. Exiting...\n");
         running = 0;
@@ -22,6 +23,7 @@ void signal_handler(int signum) {
 }
 
 void* receive_thread(void* arg) {
+    /* Поток приёма сообщений */
     void* socket = (void*)arg;
     char buffer[MAX_MSG_LEN];
     
@@ -50,7 +52,7 @@ void* receive_thread(void* arg) {
             }
             else if (strncmp(buffer, "LOGIN_OK", 8) == 0) {
                 logged_in = 1;
-                printf("\n✓ %s\n", buffer + 9);
+                printf("\n\\/ %s\n", buffer + 9);
                 fflush(stdout);
             }
             else if (strncmp(buffer, "LOGIN_ERROR", 11) == 0) {
@@ -62,19 +64,19 @@ void* receive_thread(void* arg) {
                 fflush(stdout);
             }
             else if (strncmp(buffer, "MSG_SENT", 8) == 0) {
-                printf("\n[✓]: %s\n> ", buffer + 9);
+                printf("\n[\\/]: %s\n> ", buffer + 9);
                 fflush(stdout);
             }
             else if (strncmp(buffer, "GROUP_CREATED", 13) == 0) {
-                printf("\n[✓]: %s\n> ", buffer + 14);
+                printf("\n[\\/]: %s\n> ", buffer + 14);
                 fflush(stdout);
             }
             else if (strncmp(buffer, "GROUP_JOINED", 12) == 0) {
-                printf("\n[✓]: %s\n> ", buffer + 13);
+                printf("\n[\\/]: %s\n> ", buffer + 13);
                 fflush(stdout);
             }
             else if (strncmp(buffer, "GROUP_LEFT", 10) == 0) {
-                printf("\n[✓]: %s\n> ", buffer + 11);
+                printf("\n[\\/]: %s\n> ", buffer + 11);
                 fflush(stdout);
             }
             else if (strncmp(buffer, "MY_GROUPS ", 10) == 0) {
@@ -138,7 +140,7 @@ int main(int argc, char* argv[]) {
     }
     
     signal(SIGINT, signal_handler);
-    
+
     printf("=== ZeroMQ Message Client ===\n");
     printf("Connecting to %s\n\n", argv[1]);
     
@@ -162,7 +164,7 @@ int main(int argc, char* argv[]) {
     printf("Enter your username: ");
     fgets(username, MAX_USERNAME_LEN, stdin);
     username[strcspn(username, "\n")] = 0;
-    
+
     char login_msg[MAX_MSG_LEN];
     snprintf(login_msg, MAX_MSG_LEN, "LOGIN %s", username);
     
