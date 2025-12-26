@@ -303,9 +303,9 @@ make
 ./server.out
 
 # Терминал 2 — клиенты подключаются по адресу сервера
-./client.out tcp://localhost:5555 alice
-./client.out tcp://localhost:5555 bob
-./client.out tcp://localhost:5555 charlie
+./client.out tcp://localhost:5555
+# После подключения происходит регистрация: вводится имя пользователя
+Girday
 ```
 
 
